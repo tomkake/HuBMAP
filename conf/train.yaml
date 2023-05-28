@@ -1,0 +1,54 @@
+model : 
+  name : tf_efficientnetv2_s
+  pretrained : True
+  FREEZE_BN : False
+
+optimizer : 
+  type : Adam
+  lr : 1e-2
+  use_amp: False
+
+scheduler : 
+  type : ReduceLROnPlateau
+  mode : min
+  factor : 0.5
+  patience : 5
+  threshold : 1e-4
+  warmupscheduler : True
+  warmup_param : 
+    warmup_factor : 10
+    multiplier: 1
+
+early_stop: 
+  early_stop : True
+  early_stop_factor : 5
+
+IMG:
+  height : 512
+  width : 512
+  
+param:
+  FOLD : 5
+  seed : 78321
+
+  batch_size : 8
+  TARGET_SIZE: 1
+  linear : False
+  EPOCHS : 25
+  warmup_factor : 10
+
+  DEVICE : cuda:0
+  NUM_WORKERS : 1
+
+  PREFIX: jpg
+  FOLD_COL_NAME: fold
+
+Folder: 
+  WORKING_FOLDER : ./working/log/
+  TARGET_DIR : ./data/
+  IMAGE_BASE_DIR : train_images
+
+  TARGET_NAME : cancer
+  IMG_NAME : id_code
+
+DEBUG : False
