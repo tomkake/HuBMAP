@@ -1,0 +1,19 @@
+[project]
+name = "hubmap"
+version = "0.1.0"
+description = "Add a short description here"
+authors = [
+    { name = "tomkake", email = "tamukake1101@gmail.com" }
+]
+dependencies = ["pre-commit~=3.3.2", "black==22.3.0", "flake8==4.0.1", "jupyterlab~=4.0.0", "tifffile~=2023.4.12", "matplotlib~=3.7.1", "segmentation-models-pytorch~=0.3.2", "tik~=0.1.0", "monai~=1.1.0", "cucim~=23.4.1", "pandas~=2.0.1"]
+readme = "README.md"
+requires-python = ">= 3.8"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+[tool.hatch.metadata]
+allow-direct-references = true
