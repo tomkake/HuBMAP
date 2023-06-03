@@ -44,9 +44,11 @@ fsspec==2023.5.0
 huggingface-hub==0.14.1
 identify==2.5.24
 idna==3.4
+imagecodecs==2023.3.16
 ipykernel==6.23.1
 ipython==8.13.2
 isoduration==20.11.0
+isort==5.12.0
 jedi==0.18.2
 jinja2==3.1.2
 json5==0.9.14
@@ -91,6 +93,7 @@ nvidia-cusolver-cu11==11.4.0.1
 nvidia-cusparse-cu11==11.7.4.91
 nvidia-nccl-cu11==2.14.3
 nvidia-nvtx-cu11==11.7.91
+opencv-python==4.7.0.72
 overrides==7.3.1
 packaging==23.1
 pandas==2.0.1
@@ -122,6 +125,7 @@ pyzmq==25.1.0
 requests==2.31.0
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
+scipy==1.10.1
 segmentation-models-pytorch==0.3.2
 send2trash==1.8.2
 six==1.16.0
