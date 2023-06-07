@@ -1,22 +1,22 @@
 .PHONY: black-check
 black-check:
-	rye run black --check src tests
+	rye run black --check src 
 
 .PHONY: black
 black:
-	rye run black src tests
+	rye run black src 
 
 .PHONY: flake8
 flake8:
-	rye run flake8 src tests
+	rye run flake8 src 
 
 .PHONY: isort-check
 isort-check:
-	rye run isort --check-only src tests
+	rye run isort --check-only src 
 
 .PHONY: isort
 isort:
-	rye run isort src tests
+	rye run isort src 
 
 .PHONY: mdformat
 mdformat:
@@ -32,7 +32,7 @@ mypy:
 
 .PHONY: test
 test:
-	rye run pytest tests --cov=src --cov-report term-missing --durations 5
+	rye run pytest  --cov=src --cov-report term-missing --durations 5
 
 .PHONY: format
 format:

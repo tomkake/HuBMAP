@@ -1,7 +1,8 @@
-import lightning.pytorch as pl
+import lightning as pl
 import segmentation_models_pytorch as smp
 import torch
-from loss import Loss
+
+from .loss import Loss
 
 
 class Model(pl.LightningModule):
@@ -24,13 +25,16 @@ class Model(pl.LightningModule):
         classes=1,
         in_channels=3,
         lr=1e-3,
+        activation="sigmoid",
     ) -> None:
+        super(Model, self).__init__()
         self.backbone = backbone
         self.gray_scale = gray_scale
         self.pretrained = pretrained
         self.classes = classes
         self.in_channels = in_channels
         self.lr = lr
+        self.activation = activation
 
         self.create_model()
         self.loss = Loss()
@@ -41,6 +45,7 @@ class Model(pl.LightningModule):
             encoder_weights="imagenet" if self.pretrained else None,
             in_channels=self.in_channels,
             classes=self.classes,
+            activation=self.activation,
         )
 
     def forward(self, x):
@@ -51,7 +56,15 @@ class Model(pl.LightningModule):
         img = img.float()
         mask = mask.long()
         out = self.forward(img)
-        loss = Loss(out, mask)
+        loss = self.loss(out, mask)
+        return {"loss": loss}
+
+    def validation_step(self, batch, batch_idx):
+        img, mask = batch
+        img = img.float()
+        mask = mask.long()
+        out = self.forward(img)
+        loss = self.loss(out, mask)
         return {"loss": loss}
 
     def configure_optimizers(self):
