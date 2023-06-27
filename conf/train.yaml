@@ -5,7 +5,8 @@ model :
 
 optimizer : 
   type : Adam
-  lr : 1e-2
+  encorderLR: 1e-3
+  decorderLR : 1e-2
   use_amp: False
 
 scheduler : 
@@ -46,7 +47,7 @@ param:
 Folder: 
   WORKING_FOLDER : ./working/log/
   TARGET_DIR : ./data/
-  IMAGE_BASE_DIR : train_images
+  IMAGE_BASE_DIR : train
 
   TARGET_NAME : cancer
   IMG_NAME : id_code

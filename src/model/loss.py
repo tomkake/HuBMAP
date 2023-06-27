@@ -9,19 +9,20 @@ class Loss(nn.Module):
         super(Loss, self).__init__()
 
         self.diceloss = smp.losses.DiceLoss(mode="binary")
+        self.jloss = smp.losses.JaccardLoss(mode="binary")
         self.binloss = smp.losses.SoftBCEWithLogitsLoss(
             reduction="mean", smooth_factor=0.1
         )
+        self.focalloss = smp.losses.FocalLoss(mode="binary", reduction="mean")
 
     def forward(self, output, mask):
-        output = torch.squeeze(output)
-        mask = torch.squeeze(mask)
         dice = self.diceloss(output, mask)
         bce = self.binloss(output, mask)
+        # jloss = self.jloss(output, mask)
 
-        loss = dice * 0.7 + bce * 0.3
+        total_loss = dice * 0.6 + bce * 0.4
 
-        return loss
+        return {"loss": total_loss, "dice_loss": dice, "bce": bce}
 
 
 class DiceCoef(nn.Module):

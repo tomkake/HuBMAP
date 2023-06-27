@@ -1,6 +1,5 @@
 import ast
 import datetime
-import torch
 import lightning as pl
 import pandas as pd
 from lightning.pytorch.callbacks import (
@@ -8,16 +7,16 @@ from lightning.pytorch.callbacks import (
     ModelCheckpoint,
     StochasticWeightAveraging,
 )
+import torch
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import WandbLogger
 from sklearn.model_selection import train_test_split
 
-from data.data import HuBMapDataModule
-from model.model import Model
 import random
 import numpy as np
 import os
-
+from data.data import HuBMapDataModule
+from model.model import Segformer
 
 def set_seed(seed: int = 42):
     random.seed(seed)
@@ -28,31 +27,29 @@ def set_seed(seed: int = 42):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-
 def main():
     set_seed()
     architecuture = "UNET"
     num_workers = 10
-    batch_size = 16
+    batch_size = 8
     height = 512
     width = 512
     img_dir = "./data/"
     target_name = "blood_vessel"
     row_name = "id"
     gray_scale = False
-    pretrained = "imagenet"  # noisy-student
-    backbone = "resnext50_32x4d"
-    activation = "sigmoid"
+    pretrained = "noisy-student"
+    backbone = "timm-efficientnet-b3"
+    activation = None
     in_channels = 3
-    epochs = 80
-    warm_up_epohs = 10
-    dataset_repeat = 4
-    # gradient_clip_val = 1000
+    epochs = 150
+    dataset_repeat = 8
+    warm_up_epohs = 15
     classes = 1
-    threshold = 0.6
+    threshold = 0.5
     model_mode = "binary"
     precision = "16-mixed"  # default 32-true
-    accumulate_grad_batches = 2
+    accumulate_grad_batches = 4
     swa_lrs = 1e-4
     annealing_epochs = 5
     pseudo = False
@@ -66,10 +63,12 @@ def main():
     mosaic_args = {"enable": False, "height": height, "width": width, "p": 0.5}
     df = pd.read_csv("./data/labels_1class.csv")
     meta = pd.read_csv("./data/tile_meta.csv")
-    dataset_1_id = list(meta[meta["dataset"] == 1]["id"].unique())
-    dataset_2_id = list(meta[meta["dataset"] == 2]["id"].unique())
-    train_id = dataset_2_id
-    valid_id = dataset_1_id
+    unique_id = list(meta[meta["dataset"] == 1]["id"].unique())
+    random.shuffle(unique_id)
+    all_len = len(unique_id)
+    replace_index = int(all_len * 0.8)
+    train_id = unique_id[:replace_index]
+    valid_id = unique_id[replace_index+1:]
     assert set(train_id) != set(valid_id)
     # pseudo_label_df = pd.read_csv("./data/dataset3_2stage.csv")
     # df = pd.merge(df,pseudo_label_df,how = "outer")
@@ -97,9 +96,9 @@ def main():
     swa_callback = StochasticWeightAveraging(
         swa_lrs=swa_lrs, annealing_epochs=annealing_epochs
     )
-    early_stop_callback = EarlyStopping(
-        monitor="val_loss", min_delta=0.00, patience=5, verbose=False, mode="min"
-    )
+    # early_stop_callback = EarlyStopping(
+    #     monitor="val_loss", min_delta=0.00, patience=5, verbose=False, mode="min"
+    # )
     lr_monitor = LearningRateMonitor(logging_interval="step")
     trainer = pl.Trainer(
         accelerator="gpu",
@@ -108,10 +107,8 @@ def main():
         callbacks=[model_checkpoint, lr_monitor],
         logger=wandb_logger,
         accumulate_grad_batches=accumulate_grad_batches,
-        # gradient_clip_val=gradient_clip_val,
-        deterministic=True,
     )
-    model = Model(
+    model = Segformer(
         backbone=backbone,
         gray_scale=gray_scale,
         pretrained=pretrained,

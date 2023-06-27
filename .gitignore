@@ -1,7 +1,10 @@
 data/*.csv
 *.tif
+outputs/
+data/
 data/*.jsonl
-
+wandb/
+*.png
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
