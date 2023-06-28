@@ -10,12 +10,14 @@ def get_transform(
     width=None,
     valid=False,
 ):
+    ADE_MEAN = np.array([123.675, 116.280, 103.530]) / 255
+    ADE_STD = np.array([58.395, 57.120, 57.375]) / 255
     if valid:
         return albu.Compose(
             [
-                # albu.Resize(height, width, always_apply=True, p=1),
-                # albu.Normalize(p=1),
-                ToTensorV2(transpose_mask=True),
+                albu.Resize(height, width, always_apply=True, p=1),
+                albu.Normalize(mean=ADE_MEAN, std=ADE_STD),
+                # ToTensorV2(transpose_mask=True),
             ],
         )
     train_transform = [
@@ -45,9 +47,9 @@ def get_transform(
         ),
         # albu.CoarseDropout(p=0.5),
         # required aug
-        # albu.Resize(height, width, always_apply=True, p=1),
-        # albu.Normalize(p=1),
-        ToTensorV2(transpose_mask=True),
+        albu.Resize(height, width, always_apply=True, p=1),
+        albu.Normalize(mean=ADE_MEAN, std=ADE_STD),
+        # ToTensorV2(transpose_mask=True),
     ]
     return albu.Compose(train_transform)
 

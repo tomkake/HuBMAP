@@ -27,6 +27,7 @@ dependencies = [
     "wandb~=0.15.4",
     "lightning-bolts~=0.6.0.post1",
     "transformers~=4.30.2",
+    "datasets~=2.13.1",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"

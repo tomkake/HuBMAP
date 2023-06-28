@@ -9,6 +9,14 @@ from torch.utils.data import DataLoader, Dataset
 from .mosaic import Mosaic
 from .transforms import get_cutmix_compose, get_transform, rand_bbox
 
+from transformers import MaskFormerImageProcessor
+
+def collate_fn(batch):
+    pixel_values = torch.stack([example["pixel_values"] for example in batch])
+    pixel_mask = torch.stack([example["pixel_mask"] for example in batch])
+    class_labels = [example["class_labels"] for example in batch]
+    mask_labels = [example["mask_labels"] for example in batch]
+    return {"pixel_values": pixel_values, "pixel_mask": pixel_mask, "class_labels": class_labels, "mask_labels": mask_labels}
 
 class HuBMapDataset(Dataset):
     def __init__(
@@ -42,6 +50,7 @@ class HuBMapDataset(Dataset):
         if self.mosaic:
             self.mosaic_transform = Mosaic(**mosaic_args)
         self.load = load
+        self.processor = MaskFormerImageProcessor(reduce_labels=True, ignore_index=255, do_resize=False, do_rescale=False, do_normalize=False)
 
     def prepare_data(self, idx, erosion=False):
         if idx < int(len(self.unique_id) * self.dataset_repeat):
@@ -52,41 +61,33 @@ class HuBMapDataset(Dataset):
         )
         img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
         img = cv2.resize(img, (512, 512))
-        if self.load == "npy":
-            mask_path = os.path.join(
-            self.img_dir, "train_masks_class3", target_id + ".npy"
-            )
-            mask = np.load(mask_path)
-        else:
-            mask_path = os.path.join(
-            self.img_dir, "mask_images_dataset123_class1", target_id + ".png"
-            )
-            mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-            mask = cv2.resize(mask, (512, 512))
-        # if not self.valid:
-        #     kernel = np.ones(shape=(3, 3), dtype=np.uint8)
-        #     mask = cv2.dilate(mask, kernel, 3)
+        mask_path = os.path.join(
+        self.img_dir, "train_masks_class3", target_id + ".npy"
+        )
+        mask = np.load(mask_path)
+        class_id_map = mask[:,:,0]
 
-        return img, mask
+        return img, mask[:,:,1],class_id_map
 
     def __getitem__(self, idx):
         # base image mask
-        img, mask = self.prepare_data(idx)
+        img, mask,class_id_map = self.prepare_data(idx)
         # Process annotations
+        inst2class = {}
+        class_labels = np.unique(class_id_map)
+        # class_labels = np.array(list(class_labels))
+        for label in class_labels:
+            instance_ids = np.unique(mask[class_id_map == label])
+            inst2class.update({i: label for i in instance_ids})
 
-        # for p in contours:
-        #     cv2.fillPoly(mask, [p], (255, 255))
-        # TODO: 後で外す
-        # mask = cv2.blur(mask, (6, 6))
-        # (random.random() <= self.cutmix_args["prob"])
-        # cutmix
         if not self.valid:
             if self.cutmix:
                 if not self.mosaic:
                     cutmix_idx = random.randint(0, self.__len__() - 1)
                     if cutmix_idx < int(len(self.unique_id) * self.dataset_repeat):
                         cutmix_idx = cutmix_idx % len(self.unique_id)
-                    cutmix_image, cutmix_mask = self.prepare_data(idx=cutmix_idx)
+                    cutmix_image, cutmix_mask, tmp_map = self.prepare_data(idx=cutmix_idx)
+                    class_labels
                     cutmix = self.cutmix_transform(
                         image=cutmix_image, mask=cutmix_mask, index=cutmix_idx
                     )
@@ -111,7 +112,9 @@ class HuBMapDataset(Dataset):
                         cutmix_idx = random.randint(0, self.__len__() - 1)
                         if cutmix_idx < int(len(self.unique_id) * self.dataset_repeat):
                             cutmix_idx = cutmix_idx % len(self.unique_id)
-                        cutmix_image, cutmix_mask = self.prepare_data(idx=cutmix_idx)
+                        cutmix_image, cutmix_mask,tmp_map = self.prepare_data(idx=cutmix_idx)
+                        if len(class_labels) < len(tmp_map):
+                            class_labels = np.unique(class_id_map)
                         cutmix = self.cutmix_transform(
                             image=cutmix_image, mask=cutmix_mask, index=cutmix_idx
                         )
@@ -145,14 +148,18 @@ class HuBMapDataset(Dataset):
             aug = self.augment(image=img, mask=mask)
             img = aug["image"]
             mask = aug["mask"]
+        img = img.transpose(2,0,1)
 
-        if mask.ndim < 3:
-            mask = mask[None, :, :]
-        if isinstance(img, (np.ndarray, np.generic)):
-            img = torch.Tensor(img).permute(2, 1, 0)
-        if isinstance(mask, (np.ndarray, np.generic)):
-            mask = torch.Tensor(mask)
-        return img / 255, mask / 255
+        if class_labels.shape[0] == 1 and class_labels[0] == 0:
+            # Some image does not have annotation (all ignored)
+            inputs = self.processor([img], return_tensors="pt")
+            inputs = {k:v.squeeze() for k,v in inputs.items()}
+            inputs["class_labels"] = torch.tensor([0])
+            inputs["mask_labels"] = torch.zeros((0, inputs["pixel_values"].shape[-2], inputs["pixel_values"].shape[-1]))
+        else:
+          inputs = self.processor([img], [mask], instance_id_to_semantic_id=inst2class, return_tensors="pt")
+          inputs = {k: v.squeeze() if isinstance(v, torch.Tensor) else v[0] for k,v in inputs.items()}
+        return inputs
 
     def __len__(self):
         return len(self.unique_id) * self.dataset_repeat
@@ -230,9 +237,10 @@ class HuBMapDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
+            collate_fn=collate_fn
         )
 
     def val_dataloader(self):
         return DataLoader(
-            self.vaild_dataset, batch_size=self.batch_size, num_workers=self.num_workers
+            self.vaild_dataset, batch_size=self.batch_size, num_workers=self.num_workers,collate_fn=collate_fn
         )
